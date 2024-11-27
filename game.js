@@ -8,7 +8,9 @@ class UnicornMonteGame {
         this.isGameActive = false;
         this.isShuffling = false;
         this.boxes = document.querySelectorAll('.box');
-        this.positions = [0, 120, 240]; // Track actual positions
+        // Adjust initial positions to be centered
+        const spacing = 120;
+        this.positions = [-spacing, 0, spacing]; // Center-relative positions
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         this.scoreDisplay = document.getElementById('score');
@@ -17,7 +19,8 @@ class UnicornMonteGame {
         this.messageDisplay = document.getElementById('message');
         this.difficultySelector = document.getElementById('difficulty');
         this.selectedCards = new Set(); // Track revealed cards
-        this.shuffleCount = 0; // Track shuffle count
+        this.shuffleSequence = []; // Store the sequence of moves
+        this.currentMove = 0; // Track current move in sequence
         
         // Difficulty settings
         this.difficultySettings = {
@@ -84,16 +87,14 @@ class UnicornMonteGame {
         this.attemptsDisplay.textContent = this.attempts;
         this.selectedCards.clear();
         
-        // Calculate center point and spacing based on difficulty
-        const boxWidth = 80;
-        const spacing = difficulty.spacing;
-        const startX = -spacing;
-        
         // Position cards with proper spacing
+        const spacing = difficulty.spacing;
+        this.positions = [-spacing, 0, spacing]; // Reset to centered positions
+        
+        // Initialize card positions
         this.boxes.forEach((box, i) => {
             box.classList.remove('flipped', 'correct', 'incorrect');
-            const translateX = startX + (i * spacing);
-            this.updateCardPosition(box, translateX);
+            this.updateCardPosition(box, this.positions[i]);
             const front = box.querySelector('.card-front');
             front.innerHTML = '';
         });
@@ -120,194 +121,112 @@ class UnicornMonteGame {
     }
 
     async startShuffling() {
+        if (this.isShuffling) return;
         this.isShuffling = true;
         this.isGameActive = false;
-        
-        const difficulty = this.difficultySettings[this.difficultySelector.value];
-        const shuffleCount = difficulty.shuffleCount + Math.min(this.round * 2, 4);
-        const boxes = Array.from(this.boxes);
-        const spacing = difficulty.spacing;
-        const startX = -spacing;
-        
-        // Track the initial position of the unicorn box
-        const initialUnicornIndex = boxes.findIndex(box => 
-            box.querySelector('.card-front').innerHTML === '🦄'
-        );
-        
-        let positions = [startX, 0, spacing];
-        let currentShuffles = 0;
-        
-        const performShuffleSequence = async () => {
-            // Make shuffling more random based on difficulty
-            const shufflePattern = Math.floor(Math.random() * 3); // 0: left, 1: right, 2: double
-            
-            // Add random z-index changes based on difficulty
-            if (Math.random() < difficulty.zIndexChangeFrequency) {
-                const randomBox = boxes[Math.floor(Math.random() * boxes.length)];
-                randomBox.style.zIndex = Math.floor(Math.random() * 3) + 1;
-            }
-            
-            await this.performShuffle(boxes, positions, shufflePattern !== 1, spacing, difficulty.shuffleSpeed);
-            
-            if (shufflePattern === 2) { // Double shuffle
-                boxes.push(boxes.shift());
-                boxes.push(boxes.shift());
-                boxes.unshift(boxes.pop());
-            } else if (shufflePattern === 0) { // Left shuffle
-                boxes.push(boxes.shift());
-                boxes.push(boxes.shift());
-            } else { // Right shuffle
-                boxes.unshift(boxes.pop());
-                boxes.unshift(boxes.pop());
-            }
-            positions = [startX, 0, spacing];
-        };
-        
-        // Perform initial shuffles with additional random shuffles based on difficulty
-        const totalShuffles = shuffleCount + Math.floor(Math.random() * difficulty.shuffleCount);
-        for (let i = 0; i < totalShuffles; i++) {
-            await performShuffleSequence();
-            currentShuffles++;
-        }
-        
-        // Check final position of unicorn
-        const finalUnicornIndex = boxes.findIndex(box => 
-            box.querySelector('.card-front').innerHTML === '🦄'
-        );
-        
-        // If unicorn ended up in starting position, 90% chance to do more shuffles
-        if (finalUnicornIndex === initialUnicornIndex && Math.random() < 0.9) {
-            // Do enough shuffles to ensure position changes
-            let extraShuffles = 0;
-            do {
-                await performShuffleSequence();
-                extraShuffles++;
-                // Check new position after shuffle
-                const newUnicornIndex = boxes.findIndex(box => 
-                    box.querySelector('.card-front').innerHTML === '🦄'
-                );
-                // Break if position changed or we've done too many extra shuffles
-                if (newUnicornIndex !== initialUnicornIndex || extraShuffles >= 3) break;
-            } while (true);
-        }
 
-        this.isShuffling = false;
-        this.isGameActive = true;
-        this.messageDisplay.textContent = 'Where is the unicorn? Click a box to guess!';
+        const difficulty = this.difficultySettings[this.difficultySelector.value];
+        
+        // Generate a sequence of moves
+        this.shuffleSequence = this.generateShuffleSequence(difficulty.shuffleCount);
+        this.currentMove = 0;
+        
+        // Start the first move
+        this.performNextMove();
     }
 
-    async performShuffle(boxes, positions, startFromLeft, spacing, speed) {
+    generateShuffleSequence(count) {
+        const moves = [];
+        const possibleMoves = [
+            [0, 1], // Left-Middle swap
+            [1, 2], // Middle-Right swap
+            [0, 2]  // Left-Right swap
+        ];
+
+        for (let i = 0; i < count; i++) {
+            // Avoid repeating the same move twice in a row
+            let nextMove;
+            do {
+                nextMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+            } while (moves.length > 0 && 
+                    moves[moves.length - 1][0] === nextMove[0] && 
+                    moves[moves.length - 1][1] === nextMove[1]);
+            moves.push(nextMove);
+        }
+        return moves;
+    }
+
+    performNextMove() {
+        if (this.currentMove >= this.shuffleSequence.length) {
+            this.isShuffling = false;
+            this.isGameActive = true;
+            return;
+        }
+
+        const difficulty = this.difficultySettings[this.difficultySelector.value];
+        const cardPair = this.shuffleSequence[this.currentMove];
+        
+        this.performSingleSwap(cardPair, difficulty.spacing, difficulty.shuffleSpeed)
+            .then(() => {
+                // Add a pause between moves
+                setTimeout(() => {
+                    this.currentMove++;
+                    this.performNextMove();
+                }, difficulty.shuffleSpeed * 0.3);
+            });
+    }
+
+    performSingleSwap(cardPair, spacing, speed) {
         return new Promise(resolve => {
             const startTime = Date.now();
-            const moveDistance = spacing * 5; // Increased horizontal movement distance
-            const arcHeight = 70; // Increased arc height for more dramatic movement
-            const circleRadius = 60; // Increased circle radius for wider arcs
+            const moveDistance = spacing;
+            const arcHeight = 50;
             
-            // Set initial z-indices
-            boxes.forEach(box => box.style.zIndex = '1');
+            // Reset z-indices
+            this.boxes.forEach(box => box.style.zIndex = '1');
+            
+            const [card1Index, card2Index] = cardPair;
+            const card1StartX = this.positions[card1Index];
+            const card2StartX = this.positions[card2Index];
+            const distance = card2StartX - card1StartX;
             
             const animate = () => {
                 const elapsed = Date.now() - startTime;
                 const progress = Math.min(elapsed / speed, 1);
                 
-                // Enhanced easing for more natural movement
-                const ease = t => {
-                    // Custom easing function that mimics human-like acceleration and deceleration
-                    return t < 0.2 
-                        ? 3 * t * t // Quick start
-                        : t < 0.8 
-                            ? 0.6 + (t - 0.4) * 1.2 + Math.sin(t * Math.PI) * 0.1 // Middle phase with slight wobble
-                            : 1 - Math.pow(1.2 - t, 2); // Smooth end
-                };
+                // Smooth easing function
+                const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
                 const currentProgress = ease(progress);
-
-                // Calculate circular motion
-                const angle = currentProgress * Math.PI;
-                const wobble = Math.sin(currentProgress * Math.PI * 4) * 5; // Add subtle wobble
                 
-                if (startFromLeft) {
-                    // Left card: clockwise circular motion
-                    const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
-                    const leftCircleY = Math.sin(angle) * arcHeight + wobble;
-                    const leftRotation = Math.sin(angle) * 20 + wobble * 0.5;
-
-                    // Right card: counter-clockwise circular motion
-                    const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
-                    const rightCircleY = -Math.sin(angle) * arcHeight - wobble;
-                    const rightRotation = -Math.sin(angle) * 20 - wobble * 0.5;
-
-                    // Middle card: enhanced minimal movement
-                    const middleX = positions[1] + Math.sin(angle * 2) * 10;  // Slight horizontal sway
-                    const middleY = Math.sin(angle * 3) * (arcHeight * 0.08) + wobble * 0.3; // More dynamic vertical movement
-                    const middleRotation = Math.sin(angle * 2) * 5; // Slight rotation
-                    
-                    // Calculate enhanced circular paths with variable radius
-                    const radiusMultiplier = 1 + Math.sin(currentProgress * Math.PI * 2) * 0.2; // Varying radius
-                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
-                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
-                    
-                    // Update positions with enhanced motions
-                    this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);
-                    this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
-                    this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
-
-                    // Only change z-index after significant horizontal movement
-                    if (currentProgress > 0.4) {
-                        if (currentProgress < 0.6) {
-                            boxes[0].style.zIndex = '2';
-                            boxes[1].style.zIndex = '1';
-                            boxes[2].style.zIndex = '2';
-                        } else {
-                            boxes[0].style.zIndex = '1';
-                            boxes[1].style.zIndex = '1';
-                            boxes[2].style.zIndex = '1';
-                        }
+                // Calculate positions for the two moving cards
+                this.boxes.forEach((box, index) => {
+                    if (index === card1Index) {
+                        const x = card1StartX + (distance * currentProgress);
+                        const y = Math.sin(Math.PI * currentProgress) * arcHeight;
+                        const rotation = Math.sin(Math.PI * currentProgress) * 20;
+                        this.updateCardPosition(box, x, y, rotation);
+                        box.style.zIndex = currentProgress < 0.5 ? '2' : '1';
+                    } else if (index === card2Index) {
+                        const x = card2StartX - (distance * currentProgress);
+                        const y = -Math.sin(Math.PI * currentProgress) * arcHeight;
+                        const rotation = -Math.sin(Math.PI * currentProgress) * 20;
+                        this.updateCardPosition(box, x, y, rotation);
+                        box.style.zIndex = currentProgress < 0.5 ? '1' : '2';
                     }
-                } else {
-                    // Right card: counter-clockwise circular motion
-                    const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
-                    const rightCircleY = Math.sin(angle) * arcHeight + wobble;
-                    const rightRotation = Math.sin(angle) * 20 + wobble * 0.5;
-
-                    // Left card: clockwise circular motion
-                    const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
-                    const leftCircleY = -Math.sin(angle) * arcHeight - wobble;
-                    const leftRotation = -Math.sin(angle) * 20 - wobble * 0.5;
-
-                    // Middle card: enhanced minimal movement
-                    const middleX = positions[1] + Math.sin(angle * 2) * 10; // Slight horizontal sway
-                    const middleY = Math.sin(angle * 3) * (arcHeight * 0.08) + wobble * 0.3; // More dynamic vertical movement
-                    const middleRotation = Math.sin(angle * 2) * 5; // Slight rotation
-                    
-                    // Calculate enhanced circular paths with variable radius
-                    const radiusMultiplier = 1 + Math.sin(currentProgress * Math.PI * 2) * 0.2; // Varying radius
-                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
-                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
-                    
-                    // Update positions with enhanced motions
-                    this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
-                    this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
-                    this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);
-
-                    // Only change z-index after significant horizontal movement
-                    if (currentProgress > 0.4) {
-                        if (currentProgress < 0.6) {
-                            boxes[2].style.zIndex = '2';
-                            boxes[1].style.zIndex = '1';
-                            boxes[0].style.zIndex = '2';
-                        } else {
-                            boxes[2].style.zIndex = '1';
-                            boxes[1].style.zIndex = '1';
-                            boxes[0].style.zIndex = '1';
-                        }
-                    }
-                }
+                    // The third card stays completely still
+                });
 
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
-                    boxes.forEach((box, i) => {
-                        this.updateCardPosition(box, positions[i], 0, 0);
+                    // Update positions array
+                    const tempPosition = this.positions[card1Index];
+                    this.positions[card1Index] = this.positions[card2Index];
+                    this.positions[card2Index] = tempPosition;
+
+                    // Reset all cards to their final positions
+                    this.boxes.forEach((box, i) => {
+                        this.updateCardPosition(box, this.positions[i], 0, 0);
                         box.style.zIndex = '1';
                     });
                     resolve();

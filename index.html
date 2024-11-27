@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicorn Monte Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Unicorn Monte Game</h1>
+        
+        <div class="score-board">
+            <span>Score: <span id="score">0</span></span>
+            <span>Round: <span id="round">1</span>/3</span>
+            <span>Attempts: <span id="attempts">3</span></span>
+        </div>
+
+        <div class="game-board">
+            <div class="box" data-box="1">
+                <div class="card">
+                    <div class="card-front"></div>
+                    <div class="card-back"></div>
+                </div>
+            </div>
+            <div class="box" data-box="2">
+                <div class="card">
+                    <div class="card-front"></div>
+                    <div class="card-back"></div>
+                </div>
+            </div>
+            <div class="box" data-box="3">
+                <div class="card">
+                    <div class="card-front"></div>
+                    <div class="card-back"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-controls">
+            <button id="start-btn">Start Game</button>
+            <button id="reset-btn">Reset Game</button>
+        </div>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

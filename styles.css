@@ -197,3 +197,33 @@ button:hover {
     from { transform: translateX(-10px); }
     to { transform: translateX(10px); }
 }
+
+.difficulty-selector {
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.difficulty-selector label {
+    margin-right: 10px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.difficulty-selector select {
+    padding: 5px 10px;
+    font-size: 1em;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    background-color: white;
+    cursor: pointer;
+}
+
+.difficulty-selector select:hover {
+    border-color: #45a049;
+}
+
+.difficulty-selector select:focus {
+    outline: none;
+    border-color: #45a049;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+}

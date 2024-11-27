@@ -15,8 +15,31 @@ class UnicornMonteGame {
         this.roundDisplay = document.getElementById('round');
         this.attemptsDisplay = document.getElementById('attempts');
         this.messageDisplay = document.getElementById('message');
+        this.difficultySelector = document.getElementById('difficulty');
         this.selectedCards = new Set(); // Track revealed cards
         this.shuffleCount = 0; // Track shuffle count
+        
+        // Difficulty settings
+        this.difficultySettings = {
+            easy: {
+                shuffleSpeed: 600,
+                shuffleCount: 4,
+                spacing: 90,
+                zIndexChangeFrequency: 0.3
+            },
+            medium: {
+                shuffleSpeed: 400,
+                shuffleCount: 6,
+                spacing: 90,
+                zIndexChangeFrequency: 0.5
+            },
+            hard: {
+                shuffleSpeed: 300,
+                shuffleCount: 8,
+                spacing: 120,
+                zIndexChangeFrequency: 0.7
+            }
+        };
         
         // Bind the event handlers to maintain 'this' context
         this.handleBoxClick = this.handleBoxClick.bind(this);
@@ -37,15 +60,17 @@ class UnicornMonteGame {
             return;
         }
 
+        const difficulty = this.difficultySettings[this.difficultySelector.value];
+        
         this.isGameActive = false;
         this.attempts = 3;
         this.unicornBox = Math.floor(Math.random() * 3) + 1;
         this.attemptsDisplay.textContent = this.attempts;
         this.selectedCards.clear();
         
-        // Calculate center point and spacing
+        // Calculate center point and spacing based on difficulty
         const boxWidth = 80;
-        const spacing = 90;
+        const spacing = difficulty.spacing;
         const startX = -spacing;
         
         // Position cards with proper spacing
@@ -82,16 +107,22 @@ class UnicornMonteGame {
         this.isShuffling = true;
         this.isGameActive = false;
         
-        const shuffleCount = 6 + Math.min(this.round * 2, 8);
+        const difficulty = this.difficultySettings[this.difficultySelector.value];
+        const shuffleCount = difficulty.shuffleCount + Math.min(this.round * 2, 4);
         const boxes = Array.from(this.boxes);
-        const spacing = 90;
+        const spacing = difficulty.spacing;
         const startX = -spacing;
         
         let positions = [startX, 0, spacing];
         
         for (let i = 0; i < shuffleCount; i++) {
             const startFromLeft = Math.random() < 0.5;
-            await this.performShuffle(boxes, positions, startFromLeft, spacing);
+            // Add random z-index changes based on difficulty
+            if (Math.random() < difficulty.zIndexChangeFrequency) {
+                const randomBox = boxes[Math.floor(Math.random() * boxes.length)];
+                randomBox.style.zIndex = Math.floor(Math.random() * 3) + 1;
+            }
+            await this.performShuffle(boxes, positions, startFromLeft, spacing, difficulty.shuffleSpeed);
             
             if (startFromLeft) {
                 boxes.push(boxes.shift());
@@ -109,12 +140,10 @@ class UnicornMonteGame {
         this.messageDisplay.textContent = 'Where is the unicorn? Click a box to guess!';
     }
 
-    async performShuffle(boxes, positions, startFromLeft, spacing) {
-        await new Promise(resolve => {
-            const duration = 700;
+    async performShuffle(boxes, positions, startFromLeft, spacing, speed) {
+        return new Promise(resolve => {
             const startTime = Date.now();
-            const moveDistance = spacing * 4; // Even more horizontal movement
-            const cardWidth = 80;
+            const moveDistance = spacing * 4; // Horizontal movement distance
             const arcHeight = 50;
             const circleRadius = 40;
             
@@ -123,7 +152,7 @@ class UnicornMonteGame {
             
             const animate = () => {
                 const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
+                const progress = Math.min(elapsed / speed, 1);
                 
                 // Custom easing for more natural movement
                 const ease = t => {

@@ -70,15 +70,14 @@ class UnicornMonteGame {
         this.startBtn.disabled = true;
         
         // Store the previous position before updating
-        const previousPosition = this.unicornBox;
+        const previousPosition = this.unicornBox ?? Math.floor(Math.random() * 3) + 1;
         
-        // Try to avoid the previous position when possible
-        if (previousPosition !== null && Math.random() < 0.8) {
-            // Generate a position that's different from the previous one
+        if (Math.random() < 0.9) {
+            // 90% chance to pick a different position
             const availablePositions = [1, 2, 3].filter(pos => pos !== previousPosition);
             this.unicornBox = availablePositions[Math.floor(Math.random() * availablePositions.length)];
         } else {
-            // 20% chance to allow same position, or first round (previousPosition is null)
+            // 10% chance to allow same position
             this.unicornBox = Math.floor(Math.random() * 3) + 1;
         }
         
@@ -139,7 +138,8 @@ class UnicornMonteGame {
         let currentShuffles = 0;
         
         const performShuffleSequence = async () => {
-            const startFromLeft = Math.random() < 0.5;
+            // Make shuffling more random based on difficulty
+            const shufflePattern = Math.floor(Math.random() * 3); // 0: left, 1: right, 2: double
             
             // Add random z-index changes based on difficulty
             if (Math.random() < difficulty.zIndexChangeFrequency) {
@@ -147,20 +147,25 @@ class UnicornMonteGame {
                 randomBox.style.zIndex = Math.floor(Math.random() * 3) + 1;
             }
             
-            await this.performShuffle(boxes, positions, startFromLeft, spacing, difficulty.shuffleSpeed);
+            await this.performShuffle(boxes, positions, shufflePattern !== 1, spacing, difficulty.shuffleSpeed);
             
-            if (startFromLeft) {
+            if (shufflePattern === 2) { // Double shuffle
                 boxes.push(boxes.shift());
                 boxes.push(boxes.shift());
-            } else {
+                boxes.unshift(boxes.pop());
+            } else if (shufflePattern === 0) { // Left shuffle
+                boxes.push(boxes.shift());
+                boxes.push(boxes.shift());
+            } else { // Right shuffle
                 boxes.unshift(boxes.pop());
                 boxes.unshift(boxes.pop());
             }
             positions = [startX, 0, spacing];
         };
         
-        // Perform initial shuffles
-        for (let i = 0; i < shuffleCount; i++) {
+        // Perform initial shuffles with additional random shuffles based on difficulty
+        const totalShuffles = shuffleCount + Math.floor(Math.random() * difficulty.shuffleCount);
+        for (let i = 0; i < totalShuffles; i++) {
             await performShuffleSequence();
             currentShuffles++;
         }
@@ -170,13 +175,20 @@ class UnicornMonteGame {
             box.querySelector('.card-front').innerHTML === '🦄'
         );
         
-        // If unicorn ended up in starting position and we haven't shuffled too many times,
-        // do 1-2 more shuffles
-        if (finalUnicornIndex === initialUnicornIndex && currentShuffles < shuffleCount + 1) {
-            const extraShuffles = 1 + Math.floor(Math.random() * 2); // 1 or 2 extra shuffles
-            for (let i = 0; i < extraShuffles; i++) {
+        // If unicorn ended up in starting position, 90% chance to do more shuffles
+        if (finalUnicornIndex === initialUnicornIndex && Math.random() < 0.9) {
+            // Do enough shuffles to ensure position changes
+            let extraShuffles = 0;
+            do {
                 await performShuffleSequence();
-            }
+                extraShuffles++;
+                // Check new position after shuffle
+                const newUnicornIndex = boxes.findIndex(box => 
+                    box.querySelector('.card-front').innerHTML === '🦄'
+                );
+                // Break if position changed or we've done too many extra shuffles
+                if (newUnicornIndex !== initialUnicornIndex || extraShuffles >= 3) break;
+            } while (true);
         }
 
         this.isShuffling = false;

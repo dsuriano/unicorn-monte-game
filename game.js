@@ -17,11 +17,16 @@ class UnicornMonteGame {
         this.selectedCards = new Set(); // Track revealed cards
         this.shuffleCount = 0; // Track shuffle count
         
-        // Bind events
-        this.startBtn.addEventListener('click', () => this.startGame());
-        this.resetBtn.addEventListener('click', () => this.resetGame());
+        // Bind the event handlers to maintain 'this' context
+        this.handleBoxClick = this.handleBoxClick.bind(this);
+        this.startGame = this.startGame.bind(this);
+        this.resetGame = this.resetGame.bind(this);
+        
+        // Add event listeners
+        this.startBtn.addEventListener('click', this.startGame);
+        this.resetBtn.addEventListener('click', this.resetGame);
         this.boxes.forEach(box => {
-            box.addEventListener('click', (e) => this.handleBoxClick(e));
+            box.addEventListener('click', this.handleBoxClick);
         });
     }
 
@@ -59,9 +64,16 @@ class UnicornMonteGame {
         
         this.messageDisplay.textContent = 'Watch carefully where the unicorn appears!';
 
+        // Show all cards briefly
+        this.boxes.forEach(box => box.classList.add('flipped'));
+
         setTimeout(() => {
-            this.boxes.forEach(box => box.classList.add('flipped'));
-            setTimeout(() => this.startShuffling(), 600);
+            // Hide all cards and start shuffling
+            this.boxes.forEach(box => box.classList.remove('flipped'));
+            setTimeout(() => {
+                this.startShuffling();
+                this.isGameActive = true;
+            }, 600);
         }, 2000);
 
         this.startBtn.disabled = true;
@@ -70,26 +82,22 @@ class UnicornMonteGame {
     async startShuffling() {
         const shuffleCount = 6 + Math.min(this.round * 2, 8);
         const boxes = Array.from(this.boxes);
-        const spacing = 90; // Match the spacing from startGame
-        const startX = -spacing; // Start left of center
+        const spacing = 90;
+        const startX = -spacing;
         
-        // Initialize positions centered in container
         let positions = [startX, 0, spacing];
         
         for (let i = 0; i < shuffleCount; i++) {
             const startFromLeft = Math.random() < 0.5;
             await this.performShuffle(boxes, positions, startFromLeft, spacing);
             
-            // Update box order and positions
             if (startFromLeft) {
                 boxes.push(boxes.shift());
                 boxes.push(boxes.shift());
-                // Reset to centered positions
                 positions = [startX, 0, spacing];
             } else {
                 boxes.unshift(boxes.pop());
                 boxes.unshift(boxes.pop());
-                // Reset to centered positions
                 positions = [startX, 0, spacing];
             }
         }
@@ -281,89 +289,61 @@ class UnicornMonteGame {
 
     handleBoxClick(event) {
         if (!this.isGameActive) {
-            this.messageDisplay.textContent = 'Please wait for the shuffling to complete!';
             return;
         }
-
-        const clickedBox = event.currentTarget;
-        const boxIndex = Array.from(this.boxes).indexOf(clickedBox) + 1;
-
-        // Prevent clicking already revealed cards
-        if (this.selectedCards.has(clickedBox)) {
-            return;
-        }
-
-        // Calculate score before decreasing attempts
-        const roundScore = this.calculateScore();
         
-        this.attempts--;
-        this.attemptsDisplay.textContent = this.attempts;
-
-        // Show the selected card
-        clickedBox.classList.remove('flipped');
-        const front = clickedBox.querySelector('.card-front');
-        this.selectedCards.add(clickedBox); // Add to selected cards
+        const box = event.currentTarget;
+        if (this.selectedCards.has(box)) {
+            return;
+        }
+        
+        const boxIndex = Array.from(this.boxes).indexOf(box) + 1;
+        
+        box.classList.add('flipped');
+        this.selectedCards.add(box);
 
         if (boxIndex === this.unicornBox) {
-            // Correct guess animation
-            front.innerHTML = '🦄';
-            clickedBox.classList.add('correct');
-            
-            this.score += roundScore;
+            box.classList.add('correct');
+            this.score += this.calculateScore();
             this.scoreDisplay.textContent = this.score;
             
-            let message = `You found the unicorn! +${roundScore} points! 🎉`;
-            if (this.round === 3) {
-                message += ' Final round complete!';
-            } else {
-                message += ' Get ready for the next round!';
-            }
-            this.messageDisplay.textContent = message;
-            
-            // Wait before showing all cards
             setTimeout(() => {
-                // Reveal other cards while maintaining position
-                this.boxes.forEach((box, i) => {
-                    if (!this.selectedCards.has(box)) {
-                        box.classList.remove('flipped');
-                        const boxFront = box.querySelector('.card-front');
-                        boxFront.innerHTML = '❌';
-                        box.classList.add('incorrect');
-                        this.selectedCards.add(box);
+                this.revealAllCards();
+                
+                if (this.round === 3) {
+                    if (this.score >= 150) {
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 }
+                        });
                     }
-                });
-                setTimeout(() => this.endRound(true), 1500);
+                    setTimeout(() => this.finalizeGame(), 1500);
+                } else {
+                    this.round++;
+                    this.roundDisplay.textContent = this.round;
+                    setTimeout(() => this.startNextRound(), 1500);
+                }
             }, 1000);
         } else {
-            // Incorrect guess animation
-            front.innerHTML = '❌';
-            clickedBox.classList.add('incorrect');
+            box.classList.add('incorrect');
+            this.attempts--;
+            this.attemptsDisplay.textContent = this.attempts;
             
-            if (this.attempts <= 0) {
-                this.messageDisplay.textContent = 'No more attempts left for this round!';
-                // Show all cards when out of attempts
+            if (this.attempts === 0) {
                 setTimeout(() => {
-                    // Reveal all cards while maintaining position
-                    this.boxes.forEach((box, i) => {
-                        if (!this.selectedCards.has(box)) {
-                            box.classList.remove('flipped');
-                            const boxFront = box.querySelector('.card-front');
-                            if (i + 1 === this.unicornBox) {
-                                boxFront.innerHTML = '🦄';
-                                box.classList.add('correct');
-                            } else {
-                                boxFront.innerHTML = '❌';
-                                box.classList.add('incorrect');
-                            }
-                            this.selectedCards.add(box);
-                        }
-                    });
-                    setTimeout(() => this.endRound(false), 1500);
+                    this.revealAllCards();
+                    if (this.round === 3) {
+                        setTimeout(() => this.finalizeGame(), 1500);
+                    } else {
+                        this.round++;
+                        this.roundDisplay.textContent = this.round;
+                        setTimeout(() => this.startNextRound(), 1500);
+                    }
                 }, 1000);
             } else {
                 const nextScore = this.calculateScore();
                 this.messageDisplay.textContent = `Try again! ${this.attempts} attempts left. Next correct guess worth ${nextScore} points.`;
-                // Keep card revealed until next round
             }
         }
     }
@@ -386,6 +366,7 @@ class UnicornMonteGame {
                 box.classList.add('incorrect');
                 box.classList.remove('correct');
             }
+            setTimeout(() => box.classList.add('flipped'), 50);
         });
     }
 
@@ -409,6 +390,8 @@ class UnicornMonteGame {
     }
 
     finalizeGame() {
+        this.isGameActive = false;
+        
         // Spread out the cards and reveal the unicorn
         const spacing = 90;
         const startX = -spacing;
@@ -439,6 +422,23 @@ class UnicornMonteGame {
         
         this.messageDisplay.textContent = message;
         this.startBtn.disabled = true;
+    }
+
+    startNextRound() {
+        this.isGameActive = false;
+        this.attempts = 3;
+        this.attemptsDisplay.textContent = this.attempts;
+        this.selectedCards.clear();
+        
+        this.boxes.forEach(box => {
+            box.classList.remove('flipped', 'correct', 'incorrect');
+            box.style.transform = '';
+            box.style.setProperty('--tx', '');
+            const front = box.querySelector('.card-front');
+            front.innerHTML = '';
+        });
+        
+        setTimeout(() => this.startGame(), 500);
     }
 
     resetGame() {

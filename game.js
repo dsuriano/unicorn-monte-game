@@ -6,6 +6,7 @@ class UnicornMonteGame {
         this.maxScore = 100;
         this.unicornBox = null;
         this.isGameActive = false;
+        this.isShuffling = false;
         this.boxes = document.querySelectorAll('.box');
         this.positions = [0, 120, 240]; // Track actual positions
         this.startBtn = document.getElementById('start-btn');
@@ -51,8 +52,7 @@ class UnicornMonteGame {
         this.boxes.forEach((box, i) => {
             box.classList.remove('flipped', 'correct', 'incorrect');
             const translateX = startX + (i * spacing);
-            box.style.transform = `translateX(${translateX}px)`;
-            box.style.setProperty('--tx', translateX + 'px');
+            this.updateCardPosition(box, translateX);
             const front = box.querySelector('.card-front');
             front.innerHTML = '';
         });
@@ -72,7 +72,6 @@ class UnicornMonteGame {
             this.boxes.forEach(box => box.classList.remove('flipped'));
             setTimeout(() => {
                 this.startShuffling();
-                this.isGameActive = true;
             }, 600);
         }, 2000);
 
@@ -80,6 +79,9 @@ class UnicornMonteGame {
     }
 
     async startShuffling() {
+        this.isShuffling = true;
+        this.isGameActive = false;
+        
         const shuffleCount = 6 + Math.min(this.round * 2, 8);
         const boxes = Array.from(this.boxes);
         const spacing = 90;
@@ -102,146 +104,123 @@ class UnicornMonteGame {
             }
         }
 
+        this.isShuffling = false;
         this.isGameActive = true;
         this.messageDisplay.textContent = 'Where is the unicorn? Click a box to guess!';
     }
 
     async performShuffle(boxes, positions, startFromLeft, spacing) {
-        // First perform the shuffle
         await new Promise(resolve => {
-            const duration = 450;
+            const duration = 700;
             const startTime = Date.now();
-            const moveDistance = spacing * 2.5; // Increased from 1.2 to 2.5
+            const moveDistance = spacing * 4; // Even more horizontal movement
             const cardWidth = 80;
-            const arcHeight = 40;
+            const arcHeight = 50;
+            const circleRadius = 40;
+            
+            // Set initial z-indices
+            boxes.forEach(box => box.style.zIndex = '1');
             
             const animate = () => {
                 const elapsed = Date.now() - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 
-                // Smooth easing
-                const ease = t => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                // Custom easing for more natural movement
+                const ease = t => {
+                    // Slower start, faster middle, slower end
+                    return t < 0.3 
+                        ? 2.7 * t * t 
+                        : t < 0.7 
+                            ? 0.75 + (t - 0.5) * 1.5 
+                            : 1 - Math.pow(1.3 - t, 2);
+                };
                 const currentProgress = ease(progress);
 
-                // Circular motion parameters
+                // Calculate circular motion
                 const angle = currentProgress * Math.PI;
-                const verticalArc = -Math.sin(angle) * arcHeight;
                 
                 if (startFromLeft) {
-                    // Calculate positions with wider spread
-                    const pos0 = positions[0] + currentProgress * moveDistance;
-                    const pos1 = positions[1] + currentProgress * moveDistance;
-                    const pos2 = positions[2] - currentProgress * moveDistance * 2;
-                    
-                    // Check for overlaps to manage z-index and shadows
-                    const overlap01 = pos0 + cardWidth > pos1;
-                    const overlap12 = pos1 + cardWidth > pos2;
-                    
-                    if (overlap01) {
-                        boxes[0].style.zIndex = '2';
-                        boxes[1].style.zIndex = '1';
-                        boxes[0].classList.add('elevated');
-                    } else {
-                        boxes[0].style.zIndex = '';
-                        boxes[1].style.zIndex = '';
-                        boxes[0].classList.remove('elevated');
-                    }
-                    
-                    if (overlap12) {
-                        boxes[1].style.zIndex = '2';
-                        boxes[2].style.zIndex = '1';
-                        boxes[1].classList.add('elevated');
-                    } else {
-                        boxes[2].style.zIndex = '';
-                        boxes[1].classList.remove('elevated');
-                    }
+                    // Left card: clockwise circular motion
+                    const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
+                    const leftCircleY = Math.sin(angle) * arcHeight;
+                    const leftRotation = Math.sin(angle) * 15;
 
-                    // Apply movements with arcs
-                    boxes[0].style.transform = `translate(${pos0}px, ${verticalArc}px) rotate(${-angle * 5}deg)`;
-                    boxes[1].style.transform = `translate(${pos1}px, ${verticalArc * 0.7}px)`;
-                    boxes[2].style.transform = `translate(${pos2}px, ${verticalArc * 0.3}px)`;
+                    // Right card: counter-clockwise circular motion
+                    const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
+                    const rightCircleY = -Math.sin(angle) * arcHeight;
+                    const rightRotation = -Math.sin(angle) * 15;
+
+                    // Middle card: minimal movement
+                    const middleX = positions[1];  // Keep middle card stationary horizontally
+                    const middleY = Math.sin(angle * 2) * (arcHeight * 0.05); // Very minimal vertical movement
+                    const middleRotation = 0; // No rotation for middle card
+                    
+                    // Calculate circular paths
+                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * (1 - currentProgress));
+                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * (1 - currentProgress));
+                    
+                    // Update positions with circular motions
+                    this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);
+                    this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
+                    this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
+
+                    // Only change z-index after significant horizontal movement
+                    if (currentProgress > 0.4) {
+                        if (currentProgress < 0.6) {
+                            boxes[0].style.zIndex = '2';
+                            boxes[1].style.zIndex = '1';
+                            boxes[2].style.zIndex = '2';
+                        } else {
+                            boxes[0].style.zIndex = '1';
+                            boxes[1].style.zIndex = '1';
+                            boxes[2].style.zIndex = '1';
+                        }
+                    }
                 } else {
-                    // Calculate positions with wider spread
-                    const pos2 = positions[2] - currentProgress * moveDistance;
-                    const pos1 = positions[1] - currentProgress * moveDistance;
-                    const pos0 = positions[0] + currentProgress * moveDistance * 2;
+                    // Right card: counter-clockwise circular motion
+                    const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
+                    const rightCircleY = Math.sin(angle) * arcHeight;
+                    const rightRotation = Math.sin(angle) * 15;
+
+                    // Left card: clockwise circular motion
+                    const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
+                    const leftCircleY = -Math.sin(angle) * arcHeight;
+                    const leftRotation = -Math.sin(angle) * 15;
+
+                    // Middle card: minimal movement
+                    const middleX = positions[1]; // Keep middle card stationary horizontally
+                    const middleY = Math.sin(angle * 2) * (arcHeight * 0.05); // Very minimal vertical movement
+                    const middleRotation = 0; // No rotation for middle card
                     
-                    // Check for overlaps to manage z-index and shadows
-                    const overlap21 = pos2 + cardWidth > pos1;
-                    const overlap10 = pos1 + cardWidth > pos0;
+                    // Calculate circular paths
+                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * (1 - currentProgress));
+                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * (1 - currentProgress));
                     
-                    if (overlap21) {
-                        boxes[2].style.zIndex = '2';
-                        boxes[1].style.zIndex = '1';
-                        boxes[2].classList.add('elevated');
-                    } else {
-                        boxes[2].style.zIndex = '';
-                        boxes[1].style.zIndex = '';
-                        boxes[2].classList.remove('elevated');
+                    // Update positions with circular motions
+                    this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
+                    this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
+                    this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);
+
+                    // Only change z-index after significant horizontal movement
+                    if (currentProgress > 0.4) {
+                        if (currentProgress < 0.6) {
+                            boxes[2].style.zIndex = '2';
+                            boxes[1].style.zIndex = '1';
+                            boxes[0].style.zIndex = '2';
+                        } else {
+                            boxes[2].style.zIndex = '1';
+                            boxes[1].style.zIndex = '1';
+                            boxes[0].style.zIndex = '1';
+                        }
                     }
-                    
-                    if (overlap10) {
-                        boxes[1].style.zIndex = '2';
-                        boxes[0].style.zIndex = '1';
-                        boxes[1].classList.add('elevated');
-                    } else {
-                        boxes[0].style.zIndex = '';
-                        boxes[1].classList.remove('elevated');
-                    }
-
-                    // Apply movements with arcs
-                    boxes[2].style.transform = `translate(${pos2}px, ${verticalArc}px) rotate(${angle * 5}deg)`;
-                    boxes[1].style.transform = `translate(${pos1}px, ${verticalArc * 0.7}px)`;
-                    boxes[0].style.transform = `translate(${pos0}px, ${verticalArc * 0.3}px)`;
                 }
-
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    resolve();
-                }
-            };
-
-            requestAnimationFrame(animate);
-        });
-
-        // Then perform the precise alignment animation
-        await new Promise(resolve => {
-            const alignDuration = 250; // Slightly longer to account for greater distance
-            const startTime = Date.now();
-            const startPositions = Array.from(boxes).map(box => {
-                const transform = box.style.transform;
-                const match = transform.match(/translate\(([^,]+)px/);
-                return match ? parseFloat(match[1]) : 0;
-            });
-            const targetPositions = [-spacing, 0, spacing];
-
-            const animate = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / alignDuration, 1);
-                
-                // Smooth easing for precise movement
-                const ease = t => t * (2 - t);
-                const currentProgress = ease(progress);
-
-                boxes.forEach((box, i) => {
-                    const start = startPositions[i];
-                    const target = targetPositions[i];
-                    const current = start + (target - start) * currentProgress;
-                    
-                    // Slight vertical movement for precision effect
-                    const verticalAdjust = Math.sin(progress * Math.PI) * 3;
-                    
-                    box.style.transform = `translate(${current}px, ${verticalAdjust}px)`;
-                    box.style.zIndex = '';
-                    box.classList.remove('elevated');
-                });
 
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
                     boxes.forEach((box, i) => {
-                        box.style.transform = `translateX(${targetPositions[i]}px)`;
+                        this.updateCardPosition(box, positions[i], 0, 0);
+                        box.style.zIndex = '1';
                     });
                     resolve();
                 }
@@ -251,8 +230,11 @@ class UnicornMonteGame {
         });
     }
 
-    updateCardPosition(box, x) {
-        box.style.transform = `translateX(${x}px)`;
+    updateCardPosition(box, x, y = 0, rotation = 0) {
+        const transform = y !== 0 || rotation !== 0
+            ? `translate(${x}px, ${y}px) rotate(${rotation}deg)`
+            : `translateX(${x}px)`;
+        box.style.transform = transform;
         box.style.setProperty('--tx', x + 'px');
     }
 
@@ -288,7 +270,7 @@ class UnicornMonteGame {
     }
 
     handleBoxClick(event) {
-        if (!this.isGameActive) {
+        if (!this.isGameActive || this.isShuffling) {
             return;
         }
         
@@ -354,8 +336,7 @@ class UnicornMonteGame {
         
         this.boxes.forEach((box, i) => {
             box.classList.remove('flipped');
-            box.style.transform = `translateX(${startX + (i * spacing)}px)`;
-            box.style.setProperty('--tx', (startX + (i * spacing)) + 'px');
+            this.updateCardPosition(box, startX + (i * spacing));
             const front = box.querySelector('.card-front');
             if (i + 1 === this.unicornBox) {
                 front.innerHTML = '🦄';
@@ -398,8 +379,7 @@ class UnicornMonteGame {
         
         this.boxes.forEach((box, i) => {
             box.classList.remove('flipped');
-            box.style.transform = `translateX(${startX + (i * spacing)}px)`;
-            box.style.setProperty('--tx', (startX + (i * spacing)) + 'px');
+            this.updateCardPosition(box, startX + (i * spacing));
             box.style.zIndex = '1';
             
             // Show empty card face for non-unicorn cards

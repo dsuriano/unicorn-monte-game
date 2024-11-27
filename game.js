@@ -156,9 +156,9 @@ class UnicornMonteGame {
     async performShuffle(boxes, positions, startFromLeft, spacing, speed) {
         return new Promise(resolve => {
             const startTime = Date.now();
-            const moveDistance = spacing * 4; // Horizontal movement distance
-            const arcHeight = 50;
-            const circleRadius = 40;
+            const moveDistance = spacing * 5; // Increased horizontal movement distance
+            const arcHeight = 70; // Increased arc height for more dramatic movement
+            const circleRadius = 60; // Increased circle radius for wider arcs
             
             // Set initial z-indices
             boxes.forEach(box => box.style.zIndex = '1');
@@ -167,41 +167,43 @@ class UnicornMonteGame {
                 const elapsed = Date.now() - startTime;
                 const progress = Math.min(elapsed / speed, 1);
                 
-                // Custom easing for more natural movement
+                // Enhanced easing for more natural movement
                 const ease = t => {
-                    // Slower start, faster middle, slower end
-                    return t < 0.3 
-                        ? 2.7 * t * t 
-                        : t < 0.7 
-                            ? 0.75 + (t - 0.5) * 1.5 
-                            : 1 - Math.pow(1.3 - t, 2);
+                    // Custom easing function that mimics human-like acceleration and deceleration
+                    return t < 0.2 
+                        ? 3 * t * t // Quick start
+                        : t < 0.8 
+                            ? 0.6 + (t - 0.4) * 1.2 + Math.sin(t * Math.PI) * 0.1 // Middle phase with slight wobble
+                            : 1 - Math.pow(1.2 - t, 2); // Smooth end
                 };
                 const currentProgress = ease(progress);
 
                 // Calculate circular motion
                 const angle = currentProgress * Math.PI;
+                const wobble = Math.sin(currentProgress * Math.PI * 4) * 5; // Add subtle wobble
                 
                 if (startFromLeft) {
                     // Left card: clockwise circular motion
                     const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
-                    const leftCircleY = Math.sin(angle) * arcHeight;
-                    const leftRotation = Math.sin(angle) * 15;
+                    const leftCircleY = Math.sin(angle) * arcHeight + wobble;
+                    const leftRotation = Math.sin(angle) * 20 + wobble * 0.5;
 
                     // Right card: counter-clockwise circular motion
                     const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
-                    const rightCircleY = -Math.sin(angle) * arcHeight;
-                    const rightRotation = -Math.sin(angle) * 15;
+                    const rightCircleY = -Math.sin(angle) * arcHeight - wobble;
+                    const rightRotation = -Math.sin(angle) * 20 - wobble * 0.5;
 
-                    // Middle card: minimal movement
-                    const middleX = positions[1];  // Keep middle card stationary horizontally
-                    const middleY = Math.sin(angle * 2) * (arcHeight * 0.05); // Very minimal vertical movement
-                    const middleRotation = 0; // No rotation for middle card
+                    // Middle card: enhanced minimal movement
+                    const middleX = positions[1] + Math.sin(angle * 2) * 10;  // Slight horizontal sway
+                    const middleY = Math.sin(angle * 3) * (arcHeight * 0.08) + wobble * 0.3; // More dynamic vertical movement
+                    const middleRotation = Math.sin(angle * 2) * 5; // Slight rotation
                     
-                    // Calculate circular paths
-                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * (1 - currentProgress));
-                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * (1 - currentProgress));
+                    // Calculate enhanced circular paths with variable radius
+                    const radiusMultiplier = 1 + Math.sin(currentProgress * Math.PI * 2) * 0.2; // Varying radius
+                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
+                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
                     
-                    // Update positions with circular motions
+                    // Update positions with enhanced motions
                     this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);
                     this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
                     this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
@@ -221,24 +223,25 @@ class UnicornMonteGame {
                 } else {
                     // Right card: counter-clockwise circular motion
                     const rightCircleX = positions[2] - currentProgress * moveDistance * 1.2;
-                    const rightCircleY = Math.sin(angle) * arcHeight;
-                    const rightRotation = Math.sin(angle) * 15;
+                    const rightCircleY = Math.sin(angle) * arcHeight + wobble;
+                    const rightRotation = Math.sin(angle) * 20 + wobble * 0.5;
 
                     // Left card: clockwise circular motion
                     const leftCircleX = positions[0] + currentProgress * moveDistance * 1.2;
-                    const leftCircleY = -Math.sin(angle) * arcHeight;
-                    const leftRotation = -Math.sin(angle) * 15;
+                    const leftCircleY = -Math.sin(angle) * arcHeight - wobble;
+                    const leftRotation = -Math.sin(angle) * 20 - wobble * 0.5;
 
-                    // Middle card: minimal movement
-                    const middleX = positions[1]; // Keep middle card stationary horizontally
-                    const middleY = Math.sin(angle * 2) * (arcHeight * 0.05); // Very minimal vertical movement
-                    const middleRotation = 0; // No rotation for middle card
+                    // Middle card: enhanced minimal movement
+                    const middleX = positions[1] + Math.sin(angle * 2) * 10; // Slight horizontal sway
+                    const middleY = Math.sin(angle * 3) * (arcHeight * 0.08) + wobble * 0.3; // More dynamic vertical movement
+                    const middleRotation = Math.sin(angle * 2) * 5; // Slight rotation
                     
-                    // Calculate circular paths
-                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * (1 - currentProgress));
-                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * (1 - currentProgress));
+                    // Calculate enhanced circular paths with variable radius
+                    const radiusMultiplier = 1 + Math.sin(currentProgress * Math.PI * 2) * 0.2; // Varying radius
+                    const rightX = rightCircleX - Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
+                    const leftX = leftCircleX + Math.cos(angle) * (circleRadius * radiusMultiplier * (1 - currentProgress));
                     
-                    // Update positions with circular motions
+                    // Update positions with enhanced motions
                     this.updateCardPosition(boxes[2], rightX, rightCircleY, rightRotation);
                     this.updateCardPosition(boxes[1], middleX, middleY, middleRotation);
                     this.updateCardPosition(boxes[0], leftX, leftCircleY, leftRotation);

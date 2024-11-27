@@ -126,25 +126,52 @@ class UnicornMonteGame {
         const spacing = difficulty.spacing;
         const startX = -spacing;
         
-        let positions = [startX, 0, spacing];
+        // Track the initial position of the unicorn box
+        const initialUnicornIndex = boxes.findIndex(box => 
+            box.querySelector('.card-front').innerHTML === '🦄'
+        );
         
-        for (let i = 0; i < shuffleCount; i++) {
+        let positions = [startX, 0, spacing];
+        let currentShuffles = 0;
+        
+        const performShuffleSequence = async () => {
             const startFromLeft = Math.random() < 0.5;
+            
             // Add random z-index changes based on difficulty
             if (Math.random() < difficulty.zIndexChangeFrequency) {
                 const randomBox = boxes[Math.floor(Math.random() * boxes.length)];
                 randomBox.style.zIndex = Math.floor(Math.random() * 3) + 1;
             }
+            
             await this.performShuffle(boxes, positions, startFromLeft, spacing, difficulty.shuffleSpeed);
             
             if (startFromLeft) {
                 boxes.push(boxes.shift());
                 boxes.push(boxes.shift());
-                positions = [startX, 0, spacing];
             } else {
                 boxes.unshift(boxes.pop());
                 boxes.unshift(boxes.pop());
-                positions = [startX, 0, spacing];
+            }
+            positions = [startX, 0, spacing];
+        };
+        
+        // Perform initial shuffles
+        for (let i = 0; i < shuffleCount; i++) {
+            await performShuffleSequence();
+            currentShuffles++;
+        }
+        
+        // Check final position of unicorn
+        const finalUnicornIndex = boxes.findIndex(box => 
+            box.querySelector('.card-front').innerHTML === '🦄'
+        );
+        
+        // If unicorn ended up in starting position and we haven't shuffled too many times,
+        // do 1-2 more shuffles
+        if (finalUnicornIndex === initialUnicornIndex && currentShuffles < shuffleCount + 1) {
+            const extraShuffles = 1 + Math.floor(Math.random() * 2); // 1 or 2 extra shuffles
+            for (let i = 0; i < extraShuffles; i++) {
+                await performShuffleSequence();
             }
         }
 

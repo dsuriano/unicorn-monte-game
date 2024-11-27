@@ -190,12 +190,12 @@ button:hover {
 }
 
 .shuffling {
-    animation: shuffle 0.5s infinite alternate;
+    animation: shuffle 0.8s ease-in-out infinite alternate;
 }
 
 @keyframes shuffle {
-    from { transform: translateX(-10px); }
-    to { transform: translateX(10px); }
+    from { transform: translateX(-30px); }
+    to { transform: translateX(30px); }
 }
 
 .difficulty-selector {

@@ -64,7 +64,20 @@ class UnicornMonteGame {
         
         this.isGameActive = false;
         this.attempts = 3;
-        this.unicornBox = Math.floor(Math.random() * 3) + 1;
+        
+        // Store the previous position before updating
+        const previousPosition = this.unicornBox;
+        
+        // Try to avoid the previous position when possible
+        if (previousPosition !== null && Math.random() < 0.8) {
+            // Generate a position that's different from the previous one
+            const availablePositions = [1, 2, 3].filter(pos => pos !== previousPosition);
+            this.unicornBox = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+        } else {
+            // 20% chance to allow same position, or first round (previousPosition is null)
+            this.unicornBox = Math.floor(Math.random() * 3) + 1;
+        }
+        
         this.attemptsDisplay.textContent = this.attempts;
         this.selectedCards.clear();
         

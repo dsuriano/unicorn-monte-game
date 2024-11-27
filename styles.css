@@ -154,7 +154,20 @@ button {
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    opacity: 0.7;
+    box-shadow: none;
+    transform: scale(0.98);
+}
+
+button:disabled:hover {
+    background-color: #cccccc;
 }
 
 button:hover {
@@ -216,6 +229,14 @@ button:hover {
     border-radius: 5px;
     background-color: white;
     cursor: pointer;
+}
+
+.difficulty-selector select:disabled {
+    background-color: #f5f5f5;
+    color: #999999;
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-color: #dddddd;
 }
 
 .difficulty-selector select:hover {

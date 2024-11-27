@@ -65,6 +65,10 @@ class UnicornMonteGame {
         this.isGameActive = false;
         this.attempts = 3;
         
+        // Disable difficulty selector and start button
+        this.difficultySelector.disabled = true;
+        this.startBtn.disabled = true;
+        
         // Store the previous position before updating
         const previousPosition = this.unicornBox;
         
@@ -494,24 +498,38 @@ class UnicornMonteGame {
     }
 
     resetGame() {
+        // Stop all ongoing animations
+        this.boxes.forEach(box => {
+            box.style.transition = 'none';
+            box.style.transform = '';
+            box.style.zIndex = '1';
+            box.classList.remove('flipped', 'correct', 'incorrect');
+            const front = box.querySelector('.card-front');
+            front.innerHTML = '';
+            // Re-enable transitions after reset
+            setTimeout(() => {
+                box.style.transition = '';
+            }, 50);
+        });
+
+        // Reset game state
         this.score = 0;
         this.round = 1;
         this.attempts = 3;
+        this.unicornBox = null;
         this.isGameActive = false;
-        
+        this.isShuffling = false;
+        this.selectedCards.clear();
+        this.shuffleCount = 0;
+
+        // Update displays
         this.scoreDisplay.textContent = this.score;
         this.roundDisplay.textContent = this.round;
         this.attemptsDisplay.textContent = this.attempts;
-        this.messageDisplay.textContent = 'Game reset. Click Start to play!';
+        this.messageDisplay.textContent = 'Select difficulty and press Start to begin!';
 
-        this.boxes.forEach(box => {
-            box.classList.remove('flipped', 'correct', 'incorrect');
-            box.style.transform = '';
-            box.style.setProperty('--tx', '');
-            const front = box.querySelector('.card-front');
-            front.innerHTML = '';
-        });
-
+        // Re-enable controls
+        this.difficultySelector.disabled = false;
         this.startBtn.disabled = false;
     }
 }
